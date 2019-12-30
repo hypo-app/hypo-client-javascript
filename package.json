@@ -1,0 +1,25 @@
+{
+  "name": "hypo-client",
+  "version": "0.0.1",
+  "description": "foo",
+  "scripts": {
+    "build": "rollup -c",
+    "prepublishOnly": "npm run build"
+  },
+  "browserslist": "> 0.25%, not dead",
+  "main": "dist/hypo-client.js",
+  "author": "Gabe Mulley",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.7.4",
+    "@babel/preset-env": "^7.7.4",
+    "rollup": "^1.27.8",
+    "rollup-plugin-babel": "^4.3.3",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-terser": "^5.1.2"
+  },
+  "dependencies": {
+    "core-js": "^3.4.7"
+  }
+}

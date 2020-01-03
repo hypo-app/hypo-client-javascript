@@ -1,15 +1,6 @@
 
 function getCookie(name) {
-    let cookie = "";
-    if (options.request) {
-        cookie = options.request.headers.get('cookie');
-    } else if (typeof document !== 'undefined' && typeof document.cookie !== 'undefined') {
-        cookie = document.cookie;
-    }
-    if (!cookie) {
-        return null;
-    }
-    let v = cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+    let v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
     return v ? v[2] : null;
 }
 
@@ -20,11 +11,7 @@ function setCookie(name, value, hours) {
     if (options.cookieDomain) {
         newCookie += ";domain=" + options.cookieDomain;
     }
-    if (options.response) {
-        options.response.headers.append('Set-Cookie', newCookie);
-    } else if (typeof document !== 'undefined' && typeof document.cookie !== 'undefined') {
-        document.cookie = newCookie;
-    }
+    document.cookie = newCookie;
 }
 
 // Source - https://stackoverflow.com/a/8809472
@@ -50,12 +37,10 @@ function generateUUID() { // Public Domain/MIT
 var VERSION = '0.0.1';
 var options = {
     cookiePrefix: "hypo",
-    baseUrl: "http://localhost:5000",
+    baseUrl: "https://api.hypo.app",
     project: null,
     userIdCookieDurationHours: 24 * 365 * 2,
     groupAssignmentCookieDurationHours: 6,
-    request: null,
-    response: null,
     cookieDomain: null,
     requestTimeoutMs: 5000
 }
@@ -79,34 +64,12 @@ function setUserId(userId) {
     setCookie(userIdCookieName, userId, options.userIdCookieDurationHours);
 }
 
-function withTimeout(fetchPromise) {
-    const timerPromise = new Promise((resolve) => {
-        setTimeout(resolve, options.requestTimeoutMs, { timeout: true });
-    });
-    return Promise.race([
-        fetchPromise.then((val) => {
-            return { value: val, timeout: false }
-        }),
-        timerPromise
-    ]).then((val) => {
-        if (val.timeout) {
-            throw new Error("timeout");
-        } else {
-            return val.value;
-        }
-    });
-}
-
 function getRequestHeaders() {
-    let headers = {
+    return {
         'Content-Type': 'application/json',
-        'X-Hypo-Client': options.request ? 'js-cf-worker' : 'js-web',
+        'X-Hypo-Client': 'js-web',
         'X-Hypo-Client-Version': VERSION,
     };
-    if (options.request) {
-        headers['User-Agent'] = options.request.headers.get('User-Agent') || '';
-    }
-    return headers;
 }
 
 function getGroupAssignment(experimentId) {
@@ -120,52 +83,32 @@ function getGroupAssignment(experimentId) {
     const body = JSON.stringify({
         user: userId
     });
-    const handleResponse = (data) => {
-        setCookie(experimentCookieName, data.group, options.groupAssignmentCookieDurationHours);
-        return data.group;
-    };
     const headers = getRequestHeaders();
-    if (fetch) {
-        return withTimeout(
-            fetch(url, {
-                method: "POST",
-                headers: headers,
-                body: body
-            }).then((response) => {
-                if (!response.ok) {
-                    throw new Error(response.statusText);
-                } else {
-                    return response.json();
-                }
-            }).then(handleResponse)
-        );
-    } else {
-        return new Promise((resolve, reject) => {
-            const req = new XMLHttpRequest();
-            req.open('POST', url, true);
-            req.timeout = options.requestTimeoutMs;
-            Object.keys().map((h) => req.setRequestHeader(h, headers[h]));
-            req.onload = () => {
-                if (req.status >= 200 && req.status < 300) {
-                    let jsonResponse = JSON.parse(req.responseText);
-                    handleResponse(jsonResponse);
-                    resolve(jsonResponse.group);
-                } else {
-                    reject();
-                }
-            };
-            req.ontimeout = () => {
+    return new Promise((resolve, reject) => {
+        const req = new XMLHttpRequest();
+        req.open('POST', url, true);
+        req.timeout = options.requestTimeoutMs;
+        Object.keys(headers).map((h) => req.setRequestHeader(h, headers[h]));
+        req.onload = () => {
+            if (req.status >= 200 && req.status < 300) {
+                let jsonResponse = JSON.parse(req.responseText);
+                setCookie(experimentCookieName, jsonResponse.group, options.groupAssignmentCookieDurationHours);
+                resolve(jsonResponse.group);
+            } else {
                 reject();
             }
-            req.onerror = () => {
-                reject();
-            }
-            req.onabort = () => {
-                reject();
-            }
-            req.send(body);
-        });
-    }
+        };
+        req.ontimeout = () => {
+            reject();
+        }
+        req.onerror = () => {
+            reject();
+        }
+        req.onabort = () => {
+            reject();
+        }
+        req.send(body);
+    });
 }
 
 function event(eventId, revenue) {
@@ -180,42 +123,29 @@ function event(eventId, revenue) {
     const url = `${options.baseUrl}/project/${options.project}/event`;
     const body = JSON.stringify(data);
     const headers = getRequestHeaders();
-    if (fetch) {
-        return withTimeout(fetch(url, {
-            method: "POST",
-            headers: headers,
-            body: body
-        }).then((response) => {
-            if (!response.ok) {
-                throw new Error(response.statusText);
-            }
-            return '';
-        }));
-    } else {
-        return new Promise((resolve, reject) => {
-            const req = new XMLHttpRequest();
-            req.open('POST', url, true);
-            req.timeout = options.requestTimeoutMs;
-            Object.keys().map((h) => req.setRequestHeader(h, headers[h]));
-            req.onload = () => {
-                if (req.status >= 200 && req.status < 300) {
-                    resolve();
-                } else {
-                    reject();
-                }
-            };
-            req.ontimeout = () => {
+    return new Promise((resolve, reject) => {
+        const req = new XMLHttpRequest();
+        req.open('POST', url, true);
+        req.timeout = options.requestTimeoutMs;
+        Object.keys(headers).map((h) => req.setRequestHeader(h, headers[h]));
+        req.onload = () => {
+            if (req.status >= 200 && req.status < 300) {
+                resolve();
+            } else {
                 reject();
             }
-            req.onerror = () => {
-                reject();
-            }
-            req.onabort = () => {
-                reject();
-            }
-            req.send(body);
-        });
-    }
+        };
+        req.ontimeout = () => {
+            reject();
+        }
+        req.onerror = () => {
+            reject();
+        }
+        req.onabort = () => {
+            reject();
+        }
+        req.send(body);
+    });
 }
 
 export {

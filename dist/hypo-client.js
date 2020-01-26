@@ -94,17 +94,17 @@ function getGroupAssignment(experimentId) {
                 setCookie(experimentCookieName, jsonResponse.group, options.groupAssignmentCookieDurationHours);
                 resolve(jsonResponse.group);
             } else {
-                reject();
+                reject(new Error(req.statusText));
             }
         };
         req.ontimeout = () => {
-            reject();
+            reject(new Error("request timeout"));
         };
         req.onerror = () => {
-            reject();
+            reject(new Error("unable to connect to hypo servers"));
         };
         req.onabort = () => {
-            reject();
+            reject(new Error("request aborted"));
         };
         req.send(body);
     });
@@ -131,17 +131,17 @@ function event(eventId, revenue) {
             if (req.status >= 200 && req.status < 300) {
                 resolve();
             } else {
-                reject();
+                reject(new Error(req.statusText));
             }
         };
         req.ontimeout = () => {
-            reject();
+            reject(new Error("request timeout"));
         };
         req.onerror = () => {
-            reject();
+            reject(new Error("unable to connect to hypo servers"));
         };
         req.onabort = () => {
-            reject();
+            reject(new Error("request aborted"));
         };
         req.send(body);
     });

@@ -14,26 +14,6 @@ function setCookie(name, value, hours) {
     document.cookie = newCookie;
 }
 
-// Source - https://stackoverflow.com/a/8809472
-function generateUUID() { // Public Domain/MIT
-    let d = new Date().getTime();//Timestamp
-    let d2 = 0;
-    if (typeof performance !== 'undefined') {
-        d2 = (performance && performance.now && (performance.now() * 1000)) || 0;//Time in microseconds since page-load or 0 if unsupported
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        let r = Math.random() * 16;//random number between 0 and 16
-        if (d > 0) {//Use timestamp until depleted
-            r = (d + r) % 16 | 0;
-            d = Math.floor(d / 16);
-        } else {//Use microseconds since page-load if supported
-            r = (d2 + r) % 16 | 0;
-            d2 = Math.floor(d2 / 16);
-        }
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-    });
-}
-
 var VERSION = '0.0.1';
 var options = {
     cookiePrefix: "hypo",
@@ -51,12 +31,7 @@ function init(newOptions) {
 
 function getUserId() {
     const userIdCookieName = options.cookiePrefix + "-uid";
-    let userId = getCookie(userIdCookieName);
-    if (!userId) {
-        userId = generateUUID();
-        setUserId(userId);
-    }
-    return userId;
+    return getCookie(userIdCookieName);
 }
 
 function setUserId(userId) {
@@ -72,17 +47,21 @@ function getRequestHeaders() {
     };
 }
 
-function getGroupAssignment(experimentId) {
+function getGroupAssignment(experimentId, forceRequest=false) {
     const experimentCookieName = options.cookiePrefix + "-eid-" + experimentId;
-    let userId = getUserId();
+    const userIdCookieName = options.cookiePrefix + "-uid";
     let groupAssignment = getCookie(experimentCookieName);
-    if (groupAssignment) {
+    if (groupAssignment && !forceRequest) {
         return Promise.resolve(groupAssignment);
     }
+    const userId = getUserId();
+    let body = '{}';
+    if (userId) {
+        body = JSON.stringify({
+            user: userId
+        });
+    }
     const url = `${options.baseUrl}/project/${options.project}/experiment/${experimentId}/group/assignment`;
-    const body = JSON.stringify({
-        user: userId
-    });
     const headers = getRequestHeaders();
     return new Promise((resolve, reject) => {
         const req = new XMLHttpRequest();
@@ -92,6 +71,9 @@ function getGroupAssignment(experimentId) {
         req.onload = () => {
             if (req.status >= 200 && req.status < 300) {
                 let jsonResponse = JSON.parse(req.responseText);
+                if (jsonResponse.user) {
+                    setCookie(userIdCookieName, jsonResponse.user, options.userIdCookieDurationHours);
+                }
                 setCookie(experimentCookieName, jsonResponse.group, options.groupAssignmentCookieDurationHours);
                 resolve(jsonResponse.group);
             } else {

@@ -1,3 +1,7 @@
+'use strict';
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
 function getCookie(name) {
     let v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
     return v ? v[2] : null;
@@ -13,13 +17,34 @@ function setCookie(name, value, hours) {
     document.cookie = newCookie;
 }
 
+function store(key, value) {
+    if (typeof window === 'undefined' || !window.localStorage) {
+        return;
+    }
+    window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function retrieve(key) {
+    if (typeof window === 'undefined' || !window.localStorage) {
+        return null;
+    }
+    return JSON.parse(window.localStorage.getItem(key));
+}
+
+function clear(key) {
+    if (typeof window === 'undefined' || !window.localStorage) {
+        return;
+    }
+    return window.localStorage.removeItem(key);
+}
+
 var VERSION = '0.0.1';
 var options = {
     cookiePrefix: "hypo",
     baseUrl: "https://api.hypo.app",
     project: null,
-    userIdCookieDurationHours: 24 * 365 * 2,
-    groupAssignmentCookieDurationHours: 6,
+    userIdCacheDurationHours: 24 * 365 * 2,
+    groupAssignmentCacheDurationHours: 6,
     cookieDomain: null,
     requestTimeoutMs: 5000
 };
@@ -35,7 +60,7 @@ function getUserId() {
 
 function setUserId(userId) {
     const userIdCookieName = options.cookiePrefix + "-uid";
-    setCookie(userIdCookieName, userId, options.userIdCookieDurationHours);
+    setCookie(userIdCookieName, userId, options.userIdCacheDurationHours);
 }
 
 function getRequestHeaders() {
@@ -49,11 +74,19 @@ function getRequestHeaders() {
 function getGroupAssignment(experimentId, forceRequest=false) {
     const experimentCookieName = options.cookiePrefix + "-eid-" + experimentId;
     const userIdCookieName = options.cookiePrefix + "-uid";
-    let groupAssignment = getCookie(experimentCookieName);
-    if (groupAssignment && !forceRequest) {
-        return Promise.resolve(groupAssignment);
+    let userId = getUserId();
+
+    let groupAssignment = retrieve(experimentCookieName);
+    if (groupAssignment) {
+        if ((new Date()).getTime() < groupAssignment.expirationTime && userId === groupAssignment.user) {
+            if (!forceRequest) {
+                return Promise.resolve(groupAssignment);
+            }
+        } else {
+            clear(experimentCookieName);
+        }
     }
-    const userId = getUserId();
+
     let body = '{}';
     if (userId) {
         body = JSON.stringify({
@@ -71,10 +104,16 @@ function getGroupAssignment(experimentId, forceRequest=false) {
             if (req.status >= 200 && req.status < 300) {
                 let jsonResponse = JSON.parse(req.responseText);
                 if (jsonResponse.user) {
-                    setCookie(userIdCookieName, jsonResponse.user, options.userIdCookieDurationHours);
+                    userId = jsonResponse.user;
+                    setCookie(userIdCookieName, jsonResponse.user, options.userIdCacheDurationHours);
+                } else {
+                    jsonResponse['user'] = userId;
                 }
-                setCookie(experimentCookieName, jsonResponse.group, options.groupAssignmentCookieDurationHours);
-                resolve(jsonResponse.group);
+                jsonResponse['reasonCode'] = jsonResponse['reason_code'];
+                delete jsonResponse['reason_code'];
+                jsonResponse['expirationTime'] = (new Date()).getTime() + (options.groupAssignmentCacheDurationHours*60*60*1000);
+                store(experimentCookieName, jsonResponse);
+                resolve(jsonResponse);
             } else {
                 reject(new Error(req.statusText));
             }
@@ -129,4 +168,8 @@ function event(eventId, revenue) {
     });
 }
 
-export { event, getGroupAssignment, getUserId, init, setUserId };
+exports.event = event;
+exports.getGroupAssignment = getGroupAssignment;
+exports.getUserId = getUserId;
+exports.init = init;
+exports.setUserId = setUserId;

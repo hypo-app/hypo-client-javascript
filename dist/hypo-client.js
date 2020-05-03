@@ -1,7 +1,5 @@
 'use strict';
 
-Object.defineProperty(exports, '__esModule', { value: true });
-
 function getCookie(name) {
     let v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
     return v ? v[2] : null;
@@ -168,8 +166,12 @@ function event(eventId, revenue) {
     });
 }
 
-exports.event = event;
-exports.getGroupAssignment = getGroupAssignment;
-exports.getUserId = getUserId;
-exports.init = init;
-exports.setUserId = setUserId;
+var main = {
+    init,
+    getUserId,
+    setUserId,
+    getGroupAssignment,
+    event
+};
+
+module.exports = main;

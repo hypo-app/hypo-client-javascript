@@ -165,7 +165,7 @@ function event(eventId, revenue) {
     });
 }
 
-export {
+export default {
     init,
     getUserId,
     setUserId,

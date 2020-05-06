@@ -128,41 +128,65 @@ function getGroupAssignment(experimentId, forceRequest=false) {
     });
 }
 
-function event(eventId, revenue) {
+function event(eventId, eventOptions={}) {
     let userId = getUserId();
-    const data = {
-        user: userId,
-        event: eventId
-    };
-    if (typeof revenue !== 'undefined' && revenue !== null) {
-        data.revenue = revenue;
-    }
     const url = `${options.baseUrl}/project/${options.project}/event`;
-    const body = JSON.stringify(data);
-    const headers = getRequestHeaders();
-    return new Promise((resolve, reject) => {
-        const req = new XMLHttpRequest();
-        req.open('POST', url, true);
-        req.timeout = options.requestTimeoutMs;
-        Object.keys(headers).map((h) => req.setRequestHeader(h, headers[h]));
-        req.onload = () => {
-            if (req.status >= 200 && req.status < 300) {
-                resolve();
-            } else {
-                reject(new Error(req.statusText));
-            }
+    if (navigator.sendBeacon) {
+        let data = new FormData();
+        data.append('uid', userId);
+        data.append('ev', eventId);
+        const { revenue, uniqueKey, unixTimestamp } = eventOptions;
+        if (typeof revenue !== 'undefined' && revenue !== null) {
+            data.append('rev', revenue);
+        }
+        if (typeof uniqueKey !== 'undefined' && uniqueKey !== null) {
+            data.append('k', uniqueKey);
+        }
+        if (typeof unixTimestamp !== 'undefined' && unixTimestamp !== null) {
+            data.append('t', unixTimestamp);
+        }
+        navigator.sendBeacon(url, data);
+    } else {
+        const data = {
+            user: userId,
+            event: eventId
         };
-        req.ontimeout = () => {
-            reject(new Error("request timeout"));
-        };
-        req.onerror = () => {
-            reject(new Error("unable to connect to hypo servers"));
-        };
-        req.onabort = () => {
-            reject(new Error("request aborted"));
-        };
-        req.send(body);
-    });
+        const { revenue, uniqueKey, unixTimestamp } = eventOptions;
+        if (typeof revenue !== 'undefined' && revenue !== null) {
+            data.revenue = revenue;
+        }
+        if (typeof uniqueKey !== 'undefined' && uniqueKey !== null) {
+            data.unique_key = uniqueKey;
+        }
+        if (typeof unixTimestamp !== 'undefined' && unixTimestamp !== null) {
+            data.received_at = unixTimestamp;
+        }
+        const body = JSON.stringify(data);
+        const headers = getRequestHeaders();
+        return new Promise((resolve, reject) => {
+            const req = new XMLHttpRequest();
+            req.open('POST', url, true);
+            req.timeout = options.requestTimeoutMs;
+            Object.keys(headers).map((h) => req.setRequestHeader(h, headers[h]));
+            req.onload = () => {
+                if (req.status >= 200 && req.status < 300) {
+                    resolve();
+                } else {
+                    reject(new Error(req.statusText));
+                }
+            };
+            req.ontimeout = () => {
+                reject(new Error("request timeout"));
+            };
+            req.onerror = () => {
+                reject(new Error("unable to connect to hypo servers"));
+            };
+            req.onabort = () => {
+                reject(new Error("request aborted"));
+            };
+            req.send(body);
+        }); 
+    }
 }
 
 export default {

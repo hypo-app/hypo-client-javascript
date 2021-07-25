@@ -84,18 +84,14 @@ function getGroupAssignment(experimentId, forceRequest=false) {
             clear(experimentCookieName);
         }
     }
-
-    let body = '{}';
+    let url = `${options.baseUrl}/project/${options.project}/experiment/${experimentId}/group/assignment`;
     if (userId) {
-        body = JSON.stringify({
-            user: userId
-        });
+        url = `${url}?uid=${userId}`;
     }
-    const url = `${options.baseUrl}/project/${options.project}/experiment/${experimentId}/group/assignment`;
     const headers = getRequestHeaders();
     return new Promise((resolve, reject) => {
         const req = new XMLHttpRequest();
-        req.open('POST', url, true);
+        req.open('GET', url, true);
         req.timeout = options.requestTimeoutMs;
         Object.keys(headers).map((h) => req.setRequestHeader(h, headers[h]));
         req.onload = () => {
@@ -125,7 +121,7 @@ function getGroupAssignment(experimentId, forceRequest=false) {
         req.onabort = () => {
             reject(new Error("request aborted"));
         };
-        req.send(body);
+        req.send();
     });
 }
 
